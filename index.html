@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image to Meta</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/daisyui.min.css" rel="stylesheet" type="text/css" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@4/index.css" rel="stylesheet" type="text/css" />
+  <script type="module" src="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/index.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background-color: var(--b2);
+    }
+
+    /* ── Input View ── */
+    #inputView {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #inputView.hide {
+      opacity: 0;
+      transform: scale(0.95);
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+    }
+
+    .input-wrapper {
+      width: 100%;
+      max-width: 520px;
+      height: 52px;
+      border-radius: 9999px;
+      border: 2px solid var(--bc, #d1d5db);
+      background: var(--b1);
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-wrapper:focus-within {
+      border-color: var(--p);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--p) 25%, transparent);
+    }
+    .file-btn {
+      width: 40px;
+      height: 40px;
+      margin-left: 6px;
+      border-radius: 50%;
+      border: none;
+      background: var(--p);
+      color: var(--pc);
+      font-size: 1.25rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: opacity 0.2s;
+    }
+    .file-btn:hover { opacity: 0.85; }
+    .search-input {
+      flex: 1;
+      height: 100%;
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 0 1rem;
+      font-size: 1rem;
+      color: var(--bc);
+    }
+    .search-input::placeholder {
+      color: var(--bc);
+      opacity: 0.4;
+    }
+
+    .analyze-btn-wrapper {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 1rem 1.5rem calc(1rem + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--b3, #e5e7eb);
+      background: linear-gradient(transparent, var(--b2) 30%);
+      display: flex;
+      justify-content: center;
+      z-index: 20;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    .analyze-btn-wrapper.hide {
+      opacity: 0;
+      transform: translateY(20px);
+      pointer-events: none;
+    }
+    .analyze-btn {
+      width: 100%;
+      max-width: 520px;
+      height: 48px;
+      border-radius: 9999px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      background: var(--p);
+      color: var(--pc);
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .analyze-btn:active { transform: scale(0.97); }
+    .analyze-btn:hover { opacity: 0.9; }
+
+    /* ── Result View ── */
+    #resultView {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      transform: translateY(30px);
+      pointer-events: none;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      position: absolute;
+      inset: 0;
+    }
+    #resultView.show {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+      position: relative;
+    }
+
+    /* ── Tabs ── */
+    .tab-bar {
+      display: flex;
+      padding: 4px;
+      border-radius: 9999px;
+      background: var(--b3, #e5e7eb);
+      gap: 4px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 0.6rem 0;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      border: none;
+      border-radius: 9999px;
+      background: transparent;
+      color: var(--bc);
+      opacity: 0.5;
+      transition: all 0.25s;
+    }
+    .tab-btn.active {
+      opacity: 1;
+      background: #000;
+      color: #fff;
+    }
+
+    .tab-slider {
+      display: flex;
+      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .tab-slider[data-active="tags"] {
+      transform: translateX(-50%);
+    }
+    .tab-panel {
+      min-width: 50%;
+      width: 50%;
+      flex-shrink: 0;
+      padding: 1.25rem;
+    }
+
+    /* ── Tag chip ── */
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.4rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      background: transparent;
+      color: var(--bc);
+      border: 1.5px solid var(--bc, #d1d5db);
+    }
+
+    /* ── Preview image ── */
+    .preview-img {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 0.75rem;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+      cursor: pointer;
+    }
+
+    /* ── Image lightbox ── */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 60;
+      flex-direction: column;
+    }
+    .lightbox.active { display: flex; }
+    .lightbox-header {
+      display: flex;
+      justify-content: flex-end;
+      padding: 1rem;
+      flex-shrink: 0;
+    }
+    .lightbox-close {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      font-size: 1.5rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .lightbox-body {
+      flex: 1;
+      overflow: auto;
+      padding: 0 0 2rem;
+    }
+    .lightbox-body img {
+      width: 200%;
+      max-width: none;
+      height: auto;
+      display: block;
+    }
+
+    /* ── Loading ── */
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 50;
+      align-items: center;
+      justify-content: center;
+    }
+    .loading-overlay.active { display: flex; }
+
+    /* ── Desktop: wider content ── */
+    @media (min-width: 640px) {
+      .result-content { max-width: 600px; margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div style="display:flex; flex-direction:column; align-items:center; gap:1.5rem">
+      <span class="loading loading-spinner loading-lg" style="color:white"></span>
+      <span style="display:inline-flex; align-items:center; padding:0.6rem 1.5rem; border-radius:9999px; background:#fff; color:#000; font-size:1rem; font-weight:600; border:1px solid #000">이미지 분석 중...</span>
+    </div>
+  </div>
+
+  <!-- Image Lightbox -->
+  <div class="lightbox" id="lightbox" onclick="if(event.target===this)closeLightbox()">
+    <div class="lightbox-header">
+      <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+    </div>
+    <div class="lightbox-body">
+      <img id="lightboxImage" src="" alt="full preview" />
+    </div>
+  </div>
+
+  <!-- ════════════ Input View ════════════ -->
+  <div id="inputView">
+    <p class="opacity-50 text-sm mb-8 text-center" style="text-align:center">이미지 URL을 입력하면 내용을 요약하고<br/>키워드를 추출합니다.</p>
+
+    <div class="input-wrapper mb-4">
+      <button class="file-btn" onclick="document.getElementById('fileInput').click()" aria-label="파일 선택">+</button>
+      <input
+        type="text"
+        id="imageUrlInput"
+        class="search-input"
+        placeholder="이미지 URL을 입력하세요"
+        onkeydown="if(event.key==='Enter') analyze()"
+      />
+      <input type="file" id="fileInput" accept="image/*" hidden onchange="handleFileSelect(event)" />
+    </div>
+
+    <p class="text-error text-sm mt-3 min-h-[1.25rem]" id="errorMsg">&nbsp;</p>
+  </div>
+
+  <!-- Fixed bottom button -->
+  <div class="analyze-btn-wrapper" id="analyzeBtnWrapper">
+    <button class="analyze-btn" onclick="analyze()">분석하기</button>
+  </div>
+
+  <!-- ════════════ Result View ════════════ -->
+  <div id="resultView">
+    <!-- Top bar -->
+    <div style="position:relative; display:flex; align-items:center; justify-content:center; padding:0.75rem 1rem; border-bottom:1px solid var(--b3,#e5e7eb); background:var(--b1)">
+      <button style="position:absolute; left:0.5rem; background:none; border:none; cursor:pointer; padding:0.5rem; display:flex; align-items:center" onclick="resetView()" aria-label="뒤로">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+      </button>
+      <span style="font-weight:600; font-size:1rem">분석 결과</span>
+    </div>
+
+    <!-- Image preview -->
+    <div style="display:flex; justify-content:center; padding:1rem 1rem 0.5rem">
+      <img id="resultImage" class="preview-img" src="" alt="preview" onclick="openLightbox()" />
+    </div>
+
+    <!-- Tabs -->
+    <div class="result-content">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="summary" onclick="switchTab('summary')">요약</button>
+        <button class="tab-btn" data-tab="tags" onclick="switchTab('tags')">태그</button>
+      </div>
+    </div>
+
+    <!-- Tab Panels -->
+    <div class="result-content" style="flex:1; overflow:hidden">
+      <div class="tab-slider" id="tabSlider" data-active="summary" style="width:200%">
+        <div class="tab-panel" id="panelSummary">
+          <p id="summaryText" style="line-height:1.7; font-size:0.95rem; opacity:0.8"></p>
+        </div>
+        <div class="tab-panel" id="panelTags">
+          <div id="tagsContainer" style="display:flex; flex-wrap:wrap; justify-content:center; gap:0.75rem"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = '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';
+    let selectedFileDataUrl = null;
+
+    /* ── Tab switching ── */
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      document.getElementById('tabSlider').dataset.active = tab;
+    }
+
+    /* ── Helpers ── */
+    function showError(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.style.opacity = '1';
+      setTimeout(() => { el.textContent = '\u00A0'; }, 3500);
+    }
+
+    function showLoading(show) {
+      document.getElementById('loadingOverlay').classList.toggle('active', show);
+    }
+
+    async function validateImage(url) {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+      });
+    }
+
+    /* ── GPT call ── */
+    async function callGPT(imageUrl) {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an image analysis assistant. Given an image, provide:
+1. A concise summary of the image content in Korean (3-5 sentences).
+2. A list of relevant keyword tags in Korean (8-15 tags).
+
+Respond in the following JSON format only:
+{"summary": "...", "tags": ["tag1", "tag2", ...]}`
+            },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: '이 이미지의 내용을 요약하고 관련 키워드 태그를 추출해주세요.' },
+                { type: 'image_url', image_url: { url: imageUrl } }
+              ]
+            }
+          ],
+          max_tokens: 1000,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `API 오류 (${res.status})`);
+      }
+
+      const data = await res.json();
+      const content = data.choices[0].message.content;
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('응답 파싱 실패');
+      return JSON.parse(jsonMatch[0]);
+    }
+
+    /* ── View transitions ── */
+    function transitionToResult(imageUrl, summary, tags) {
+      document.getElementById('resultImage').src = imageUrl;
+      document.getElementById('summaryText').textContent = summary;
+
+      const container = document.getElementById('tagsContainer');
+      container.innerHTML = '';
+      tags.forEach(tag => {
+        const span = document.createElement('span');
+        span.className = 'tag-chip';
+        span.textContent = `#${tag}`;
+        container.appendChild(span);
+      });
+
+      // Reset to summary tab
+      switchTab('summary');
+
+      document.getElementById('inputView').classList.add('hide');
+      document.getElementById('analyzeBtnWrapper').classList.add('hide');
+      setTimeout(() => {
+        document.getElementById('resultView').classList.add('show');
+      }, 100);
+    }
+
+    function resetView() {
+      document.getElementById('resultView').classList.remove('show');
+      setTimeout(() => {
+        document.getElementById('inputView').classList.remove('hide');
+        document.getElementById('analyzeBtnWrapper').classList.remove('hide');
+        document.getElementById('imageUrlInput').value = '';
+        clearFileSelection();
+        document.getElementById('imageUrlInput').focus();
+      }, 100);
+    }
+
+    /* ── Lightbox ── */
+    function openLightbox() {
+      document.getElementById('lightboxImage').src = document.getElementById('resultImage').src;
+      document.getElementById('lightbox').classList.add('active');
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('active');
+    }
+
+    /* ── File select ── */
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        selectedFileDataUrl = e.target.result;
+        document.getElementById('imageUrlInput').value = file.name;
+        document.getElementById('imageUrlInput').readOnly = true;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearFileSelection() {
+      selectedFileDataUrl = null;
+      document.getElementById('fileInput').value = '';
+      document.getElementById('imageUrlInput').readOnly = false;
+    }
+
+    /* ── Analyze ── */
+    async function analyze() {
+      const inputVal = document.getElementById('imageUrlInput').value.trim();
+      if (!inputVal) return showError('URL을 입력하거나 파일을 선택해주세요.');
+
+      const imageUrl = selectedFileDataUrl || inputVal;
+      const previewUrl = selectedFileDataUrl || inputVal;
+
+      showLoading(true);
+
+      if (!selectedFileDataUrl) {
+        const isImage = await validateImage(inputVal);
+        if (!isImage) {
+          showLoading(false);
+          return showError('유효한 이미지 URL이 아닙니다.');
+        }
+      }
+
+      try {
+        const result = await callGPT(imageUrl);
+        showLoading(false);
+        transitionToResult(previewUrl, result.summary, result.tags);
+      } catch (e) {
+        showLoading(false);
+        showError(e.message);
+      }
+    }
+  </script>
+</body>
+</html>
