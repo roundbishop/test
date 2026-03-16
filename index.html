@@ -486,12 +486,12 @@ Respond in the following JSON format only:
       if (!inputVal) return showError('URL을 입력하거나 파일을 선택해주세요.');
 
       const imageUrl = selectedFileDataUrl || inputVal;
-      const previewUrl = selectedFileDataUrl || inputVal;
+      const previewUrl = selectedFileDataUrl || `${PROXY_URL}/image?url=${encodeURIComponent(inputVal)}`;
 
       showLoading(true);
 
       if (!selectedFileDataUrl) {
-        const isImage = await validateImage(inputVal);
+        const isImage = await validateImage(previewUrl);
         if (!isImage) {
           showLoading(false);
           return showError('유효한 이미지 URL이 아닙니다.');
