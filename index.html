@@ -344,7 +344,7 @@
   </div>
 
   <script>
-    const API_KEY = atob('c2stcHJvai1YajBpLUlNNGhyLW9YTnVfYTh3WUNQWDNTa3NMSkNnMkZsOFdzaUwwV0pjVFBZYkpRVEZFZTBBbnpDZkdOVW1jbUtlOC1mdFc1VFQzQmxia0ZKc1JCOTZZYjVHLVJOaHlMRXZZbUVxX1FTRTh3eG83U2RXazFmYU1fcTdfaEt3TVdJaXpYR2hkOUt4OTVUVTBYU28xWU1XWjdHSUE=');
+    const PROXY_URL = 'https://shiny-butterfly-3a5e.bishop-cho.workers.dev';
     let selectedFileDataUrl = null;
 
     /* ── Tab switching ── */
@@ -376,11 +376,10 @@
 
     /* ── GPT call ── */
     async function callGPT(imageUrl) {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetch(PROXY_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`,
         },
         body: JSON.stringify({
           model: 'gpt-4o',
